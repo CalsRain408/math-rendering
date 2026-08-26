@@ -18,6 +18,12 @@ Times New Roman 的斜体 `f`、大写字母和上下标可能带有超出 MathJ
 
 > “MathType 风格”模式优先保证字体外观、居中和编号版式，公式以矢量图保存，不能像 OMML 一样在 Word 公式编辑器中逐字符修改。需要修改时，在 Word 中选中由新版 Formula Canvas 插入的公式，点击“编辑选中公式”即可恢复原 LaTeX 和排版设置；更新后会在原位置替换公式。旧版本插入、未携带源码元数据的公式仍需重新插入一次。
 
+## macOS 安装包
+
+[下载 Formula Canvas for macOS v0.1.0](https://github.com/CalsRain408/math-rendering/releases/download/v0.1.0/formula-canvas-mac.zip)
+
+> 此一键安装包仅适用于 macOS。下载并解压后，请按照包内的 `README-安装说明.txt` 完成安装。
+
 ## 本地运行
 
 需要 Node.js 20.19+。
