@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+  <defs>
+    <!-- 背景深色渐变 -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a1030"/>
+      <stop offset="0.5" stop-color="#241447"/>
+      <stop offset="1" stop-color="#120b24"/>
+    </linearGradient>
+    <!-- 品牌渐变（图标同色系） -->
+    <linearGradient id="brand" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f7cff"/>
+      <stop offset="1" stop-color="#8b45e0"/>
+    </linearGradient>
+    <linearGradient id="brandSoft" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6a8dff"/>
+      <stop offset="1" stop-color="#a86bf0"/>
+    </linearGradient>
+    <!-- 柔光 -->
+    <radialGradient id="glow" cx="0.5" cy="0.42" r="0.6">
+      <stop offset="0" stop-color="#5a3fd0" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#5a3fd0" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="1200" height="1200" fill="url(#bg)"/>
+  <ellipse cx="600" cy="500" rx="640" ry="560" fill="url(#glow)"/>
+
+  <!-- 背景淡淡的公式水印 -->
+  <g fill="#ffffff" opacity="0.05" font-family="Georgia, 'Times New Roman', serif" font-style="italic">
+    <text x="120" y="230" font-size="82">e = mc²</text>
+    <text x="720" y="330" font-size="70">∫₀^∞ e⁻ˣ dx</text>
+    <text x="140" y="1010" font-size="72">a² + b² = c²</text>
+    <text x="640" y="1080" font-size="66">∇ · E = ρ/ε₀</text>
+    <text x="860" y="720" font-size="76">√2</text>
+    <text x="90" y="640" font-size="66">Σ 1/n²</text>
+  </g>
+
+  <!-- 中央图标徽章 -->
+  <g transform="translate(600,470)">
+    <rect x="-150" y="-150" width="300" height="300" rx="72" fill="url(#brand)"/>
+    <rect x="-150" y="-150" width="300" height="300" rx="72" fill="none" stroke="#ffffff" stroke-opacity="0.15" stroke-width="3"/>
+    <text x="0" y="86" text-anchor="middle" fill="#ffffff" font-family="Georgia, serif" font-size="230">∑</text>
+  </g>
+
+  <!-- 主标题 -->
+  <text x="600" y="760" text-anchor="middle" fill="#ffffff"
+        font-family="-apple-system, 'Helvetica Neue', 'PingFang SC', sans-serif"
+        font-size="112" font-weight="700" letter-spacing="1">Formula Canvas</text>
+
+  <!-- 副标题 -->
+  <text x="600" y="838" text-anchor="middle" fill="#c7c2e8"
+        font-family="-apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif"
+        font-size="46" font-weight="400">LaTeX 公式 · 一键插入 Word / PowerPoint</text>
+
+  <!-- 分隔小点 -->
+  <circle cx="600" cy="905" r="7" fill="url(#brandSoft)"/>
+  <circle cx="560" cy="905" r="7" fill="#ffffff" fill-opacity="0.25"/>
+  <circle cx="640" cy="905" r="7" fill="#ffffff" fill-opacity="0.25"/>
+
+  <!-- 底部渲染示例：LaTeX 源 → 渲染结果 -->
+  <g transform="translate(600,1010)">
+    <!-- 源码块 -->
+    <rect x="-430" y="-46" width="360" height="92" rx="18" fill="#211640" stroke="#ffffff" stroke-opacity="0.14" stroke-width="2"/>
+    <text x="-250" y="14" text-anchor="middle" fill="#8ea2d8"
+          font-family="'SF Mono', Menlo, Consolas, monospace" font-size="40">\frac{a}{b}</text>
+    <!-- 箭头 -->
+    <g stroke="url(#brandSoft)" stroke-width="7" stroke-linecap="round" fill="none">
+      <line x1="-52" y1="0" x2="46" y2="0"/>
+      <polyline points="20,-22 48,0 20,22"/>
+    </g>
+    <!-- 渲染结果块 -->
+    <rect x="70" y="-46" width="360" height="92" rx="18" fill="#2a1c52" stroke="url(#brandSoft)" stroke-opacity="0.6" stroke-width="2"/>
+    <g transform="translate(250,0)" fill="#ffffff" font-family="Georgia, serif" font-style="italic">
+      <text x="0" y="-6" text-anchor="middle" font-size="46">a</text>
+      <line x1="-26" y1="6" x2="26" y2="6" stroke="#ffffff" stroke-width="3"/>
+      <text x="0" y="46" text-anchor="middle" font-size="46">b</text>
+    </g>
+  </g>
+</svg>

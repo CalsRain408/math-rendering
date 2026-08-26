@@ -1,0 +1,24 @@
+{
+  "name": "formula-canvas-office-addin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "certs": "office-addin-dev-certs install",
+    "validate": "office-addin-manifest validate manifest.xml"
+  },
+  "dependencies": {
+    "mathjax-full": "^3.2.2",
+    "mathml2omml": "^0.5.0"
+  },
+  "devDependencies": {
+    "@types/office-js": "^1.0.604",
+    "office-addin-dev-certs": "^2.0.10",
+    "office-addin-manifest": "^2.1.6",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0"
+  }
+}

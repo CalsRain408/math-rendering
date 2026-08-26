@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+*.zip
+*.pem
+*.key
+*.p12
+*.pfx
+.env
+.env.*
+.redInfo
+.clawhub/
+/skills/
+**/__pycache__/
+*.py[cod]
+# Local distribution helper; keep it out of GitHub.
+/cowork-app/
+local-pkg/formula-canvas-mac/site/
