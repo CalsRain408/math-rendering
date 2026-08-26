@@ -7,16 +7,27 @@ import { AllPackages } from "mathjax-full/js/input/tex/AllPackages.js";
 import { SerializedMmlVisitor } from "mathjax-full/js/core/MmlTree/SerializedMmlVisitor.js";
 import { CommonWrapper } from "mathjax-full/js/output/common/Wrapper.js";
 
-export const MATHTYPE_SIZE_RATIOS = {
+export type MathTypeSizeRatios = {
+  subscript: number;
+  subSubscript: number;
+  symbol: number;
+  subSymbol: number;
+};
+
+export const DEFAULT_MATHTYPE_SIZE_RATIOS: MathTypeSizeRatios = {
   subscript: 0.58,
   subSubscript: 0.42,
-} as const;
+  symbol: 1.5,
+  subSymbol: 1,
+};
+
+let activeMathTypeSizeRatios = DEFAULT_MATHTYPE_SIZE_RATIOS;
 
 /**
  * MathJax's TeX defaults use 70.7% scripts and 50% nested scripts. MathType's
- * factory size definitions use 58% and 42% of Full size. Override only the
- * SVG wrapper scale calculation so layout metrics and serialized transforms
- * are computed with the MathType ratios from the start.
+ * factory size definitions use five logical sizes. Override the SVG wrapper
+ * scale calculation so layout metrics and serialized transforms are computed
+ * with the selected ratios from the start.
  */
 function configureMathTypeSizing(): void {
   const prototype = CommonWrapper.prototype as unknown as {
@@ -30,14 +41,35 @@ function configureMathTypeSizing(): void {
     const parentScale = this.parent ? this.parent.bbox.scale : 1;
     const attributes = this.node.attributes;
     const scriptLevel = Math.max(0, Math.min(Number(attributes.get("scriptlevel")), 2));
+    const largeOperator = attributes.get("largeop");
+    const inheritedDisplayStyle = attributes.getInherited("displaystyle");
+    const isLargeOperator =
+      this.node.isKind("mo") && (largeOperator === true || largeOperator === "true");
+    const displayStyle = inheritedDisplayStyle === true || inheritedDisplayStyle === "true";
     let fontSize = attributes.get("fontsize");
     let mathSize =
       this.node.isToken || this.node.isKind("mstyle")
         ? attributes.get("mathsize")
         : attributes.getInherited("mathsize");
 
-    if (scriptLevel === 1) scale = MATHTYPE_SIZE_RATIOS.subscript;
-    else if (scriptLevel >= 2) scale = MATHTYPE_SIZE_RATIOS.subSubscript;
+    if (isLargeOperator) {
+      if (scriptLevel > 0) {
+        // MathType uses Sub-symbol for an oversize operator placed inside a
+        // subscript-sized slot, independently of the ordinary script size.
+        scale = activeMathTypeSizeRatios.subSymbol;
+      } else {
+        // MathJax's display-style large-operator glyph is already about 150%
+        // of Full. Treat that as the MathType factory baseline so changing the
+        // Symbol percentage adjusts it without double-enlarging the glyph.
+        scale = displayStyle
+          ? activeMathTypeSizeRatios.symbol / DEFAULT_MATHTYPE_SIZE_RATIOS.symbol
+          : activeMathTypeSizeRatios.symbol;
+      }
+    } else if (scriptLevel === 1) {
+      scale = activeMathTypeSizeRatios.subscript;
+    } else if (scriptLevel >= 2) {
+      scale = activeMathTypeSizeRatios.subSubscript;
+    }
 
     if (this.removedStyles?.fontSize && !fontSize) fontSize = this.removedStyles.fontSize;
     if (fontSize && !attributes.getExplicit("mathsize")) mathSize = fontSize;
@@ -58,6 +90,7 @@ export type RenderOptions = {
   background: "transparent" | "white";
   mathFont: MathFont;
   mathStyle: MathStyle;
+  sizeRatios: MathTypeSizeRatios;
 };
 
 export type MathFont = "tex" | "times-new-roman";
@@ -652,9 +685,16 @@ export function renderFormula(source: string, options: RenderOptions): RenderedF
   const normalized = normalizeMathInput(source);
   if (!normalized) throw new Error("请输入公式");
 
-  const node = document.convert(styledFormulaSource(normalized, options.mathStyle), {
-    display: options.display,
-  });
+  const previousSizeRatios = activeMathTypeSizeRatios;
+  activeMathTypeSizeRatios = options.sizeRatios;
+  let node: ReturnType<typeof document.convert>;
+  try {
+    node = document.convert(styledFormulaSource(normalized, options.mathStyle), {
+      display: options.display,
+    });
+  } finally {
+    activeMathTypeSizeRatios = previousSizeRatios;
+  }
   const wrapper = new DOMParser().parseFromString(adaptor.outerHTML(node), "text/html");
   const svg = wrapper.querySelector("svg");
   if (!svg) throw new Error("未能生成 SVG");

@@ -37,6 +37,10 @@ textarea:focus { background: #fff; box-shadow: inset 0 0 0 2px #3156d826; }
 .setting input[type="number"], .setting select { width: 100%; height: 38px; padding: 0 10px; border: 1px solid #d7dde6; border-radius: 8px; outline: none; color: #344054; background: #fff; font-size: 12px; }
 .setting input:focus, .setting select:focus { border-color: #7892ef; box-shadow: 0 0 0 3px #3156d81a; }
 .setting-hint { color: #667085; font-size: 10px; font-weight: 450; line-height: 1.5; }
+.typesize-panel { padding: 10px 11px; border: 1px solid #d7dde6; border-radius: 8px; background: #fff; }
+.typesize-panel summary { cursor: pointer; color: #475467; font-size: 11px; font-weight: 650; }
+.typesize-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.typesize-reset { margin-top: 9px; }
 .number-field { position: relative; }
 .number-field input { padding-right: 30px !important; }
 .number-field i { position: absolute; top: 11px; right: 10px; color: #98a2b3; font-style: normal; font-weight: 400; }
@@ -59,5 +63,6 @@ footer { margin-top: 17px; color: #98a2b3; text-align: center; font-size: 10px; 
 @media (max-width: 370px) {
   .shell { padding-inline: 12px; }
   .settings { grid-template-columns: 1fr; }
+  .typesize-grid { grid-template-columns: 1fr; }
   .secondary-actions { grid-template-columns: 1fr; }
 }

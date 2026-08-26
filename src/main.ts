@@ -10,7 +10,7 @@ import {
   type InsertPreference,
 } from "./office";
 import {
-  MATHTYPE_SIZE_RATIOS,
+  DEFAULT_MATHTYPE_SIZE_RATIOS,
   renderFormula,
   svgToPngBase64,
   type RenderOptions,
@@ -69,6 +69,28 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
         <span>颜色</span>
         <span class="color-field"><input id="color" type="color" value="#111827" /><code id="colorValue">#111827</code></span>
       </label>
+      <details class="typesize-panel setting-wide">
+        <summary>自定义 MathType 尺寸</summary>
+        <div class="typesize-grid">
+          <label class="setting">
+            <span>上标 / 下标</span>
+            <span class="number-field"><input id="subscriptSize" type="number" min="10" max="300" step="0.5" value="58" /><i>%</i></span>
+          </label>
+          <label class="setting">
+            <span>子上标 / 子下标</span>
+            <span class="number-field"><input id="subSubscriptSize" type="number" min="10" max="300" step="0.5" value="42" /><i>%</i></span>
+          </label>
+          <label class="setting">
+            <span>符号</span>
+            <span class="number-field"><input id="symbolSize" type="number" min="10" max="400" step="0.5" value="150" /><i>%</i></span>
+          </label>
+          <label class="setting">
+            <span>次符号</span>
+            <span class="number-field"><input id="subSymbolSize" type="number" min="10" max="400" step="0.5" value="100" /><i>%</i></span>
+          </label>
+        </div>
+        <button id="resetTypesizesButton" class="text-button typesize-reset" type="button">恢复 MathType 默认比例</button>
+      </details>
       <label class="setting setting-wide">
         <span>数学字体</span>
         <select id="mathFont">
@@ -130,6 +152,10 @@ document.querySelector<HTMLDivElement>("#app")!.innerHTML = `
 const elements = {
   formula: document.querySelector<HTMLTextAreaElement>("#formula")!,
   fontSize: document.querySelector<HTMLInputElement>("#fontSize")!,
+  subscriptSize: document.querySelector<HTMLInputElement>("#subscriptSize")!,
+  subSubscriptSize: document.querySelector<HTMLInputElement>("#subSubscriptSize")!,
+  symbolSize: document.querySelector<HTMLInputElement>("#symbolSize")!,
+  subSymbolSize: document.querySelector<HTMLInputElement>("#subSymbolSize")!,
   sizeHint: document.querySelector<HTMLElement>("#sizeHint")!,
   color: document.querySelector<HTMLInputElement>("#color")!,
   colorValue: document.querySelector<HTMLElement>("#colorValue")!,
@@ -152,6 +178,25 @@ let rendered: RenderedFormula | null = null;
 let renderTimer = 0;
 let editingFormulaTarget: FormulaReplacementTarget | null = null;
 
+function percentageRatio(
+  element: HTMLInputElement,
+  fallback: number,
+  label: string,
+): number {
+  if (!element.value.trim()) return fallback;
+  const value = Number(element.value);
+  const minimum = Number(element.min);
+  const maximum = Number(element.max);
+  if (
+    !Number.isFinite(value) ||
+    (Number.isFinite(minimum) && value < minimum) ||
+    (Number.isFinite(maximum) && value > maximum)
+  ) {
+    throw new Error(`${label}必须在 ${minimum}%–${maximum}% 之间`);
+  }
+  return value / 100;
+}
+
 function options(): RenderOptions {
   return {
     display: elements.displayMode.value === "display",
@@ -160,6 +205,28 @@ function options(): RenderOptions {
     background: elements.background.value as RenderOptions["background"],
     mathFont: elements.mathFont.value as RenderOptions["mathFont"],
     mathStyle: elements.mathStyle.value as RenderOptions["mathStyle"],
+    sizeRatios: {
+      subscript: percentageRatio(
+        elements.subscriptSize,
+        DEFAULT_MATHTYPE_SIZE_RATIOS.subscript,
+        "上标 / 下标比例",
+      ),
+      subSubscript: percentageRatio(
+        elements.subSubscriptSize,
+        DEFAULT_MATHTYPE_SIZE_RATIOS.subSubscript,
+        "子上标 / 子下标比例",
+      ),
+      symbol: percentageRatio(
+        elements.symbolSize,
+        DEFAULT_MATHTYPE_SIZE_RATIOS.symbol,
+        "符号比例",
+      ),
+      subSymbol: percentageRatio(
+        elements.subSymbolSize,
+        DEFAULT_MATHTYPE_SIZE_RATIOS.subSymbol,
+        "次符号比例",
+      ),
+    },
   };
 }
 
@@ -176,9 +243,16 @@ function formatPoint(value: number): string {
 
 function updateSizeHint() {
   const full = Number(elements.fontSize.value) || 12;
-  elements.sizeHint.textContent =
-    `脚标 ${formatPoint(full * MATHTYPE_SIZE_RATIOS.subscript)} pt · ` +
-    `二级 ${formatPoint(full * MATHTYPE_SIZE_RATIOS.subSubscript)} pt`;
+  try {
+    const ratios = options().sizeRatios;
+    elements.sizeHint.textContent =
+      `脚标 ${formatPoint(full * ratios.subscript)} pt · ` +
+      `二级 ${formatPoint(full * ratios.subSubscript)} pt · ` +
+      `符号 ${formatPoint(full * ratios.symbol)} pt · ` +
+      `次符号 ${formatPoint(full * ratios.subSymbol)} pt`;
+  } catch (error) {
+    elements.sizeHint.textContent = error instanceof Error ? error.message : "尺寸设置无效";
+  }
 }
 
 function updateInsertButtonLabel() {
@@ -314,6 +388,10 @@ async function handleEditSelected() {
     elements.formula.value = formula.source;
     elements.displayMode.value = formula.display ? "display" : "inline";
     elements.fontSize.value = String(formula.fontSizePt);
+    elements.subscriptSize.value = String(formula.sizeRatios.subscript * 100);
+    elements.subSubscriptSize.value = String(formula.sizeRatios.subSubscript * 100);
+    elements.symbolSize.value = String(formula.sizeRatios.symbol * 100);
+    elements.subSymbolSize.value = String(formula.sizeRatios.subSymbol * 100);
     elements.color.value = formula.color;
     elements.colorValue.textContent = formula.color.toUpperCase();
     elements.background.value = formula.background;
@@ -321,6 +399,7 @@ async function handleEditSelected() {
     elements.mathStyle.value = formula.mathStyle;
     elements.insertFormat.value = formula.preference;
     localStorage.setItem("formula-canvas-full-size", elements.fontSize.value);
+    persistTypesizes();
     localStorage.setItem("formula-canvas-math-font", elements.mathFont.value);
     localStorage.setItem("formula-canvas-math-style", elements.mathStyle.value);
     updateSizeHint();
@@ -344,6 +423,11 @@ function cancelFormulaEditing() {
 
 elements.formula.value = localStorage.getItem("formula-canvas-source") ?? SAMPLE;
 elements.fontSize.value = localStorage.getItem("formula-canvas-full-size") ?? "12";
+elements.subscriptSize.value = localStorage.getItem("formula-canvas-subscript-size") ?? "58";
+elements.subSubscriptSize.value =
+  localStorage.getItem("formula-canvas-sub-subscript-size") ?? "42";
+elements.symbolSize.value = localStorage.getItem("formula-canvas-symbol-size") ?? "150";
+elements.subSymbolSize.value = localStorage.getItem("formula-canvas-sub-symbol-size") ?? "100";
 elements.mathFont.value = localStorage.getItem("formula-canvas-math-font") ?? "tex";
 elements.mathStyle.value = localStorage.getItem("formula-canvas-math-style") ?? "default";
 elements.formula.addEventListener("input", schedulePreview);
@@ -352,6 +436,34 @@ elements.fontSize.addEventListener("input", () => {
   localStorage.setItem("formula-canvas-full-size", elements.fontSize.value);
   updateSizeHint();
   schedulePreview();
+});
+function persistTypesizes() {
+  localStorage.setItem("formula-canvas-subscript-size", elements.subscriptSize.value);
+  localStorage.setItem("formula-canvas-sub-subscript-size", elements.subSubscriptSize.value);
+  localStorage.setItem("formula-canvas-symbol-size", elements.symbolSize.value);
+  localStorage.setItem("formula-canvas-sub-symbol-size", elements.subSymbolSize.value);
+}
+const typesizeInputs = [
+  elements.subscriptSize,
+  elements.subSubscriptSize,
+  elements.symbolSize,
+  elements.subSymbolSize,
+];
+typesizeInputs.forEach((element) => {
+  element.addEventListener("input", () => {
+    persistTypesizes();
+    updateSizeHint();
+    schedulePreview();
+  });
+});
+document.querySelector("#resetTypesizesButton")!.addEventListener("click", () => {
+  elements.subscriptSize.value = "58";
+  elements.subSubscriptSize.value = "42";
+  elements.symbolSize.value = "150";
+  elements.subSymbolSize.value = "100";
+  persistTypesizes();
+  updateSizeHint();
+  updatePreview();
 });
 elements.displayMode.addEventListener("input", () => {
   schedulePreview();

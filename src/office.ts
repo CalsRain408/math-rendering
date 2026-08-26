@@ -1,4 +1,5 @@
 import {
+  DEFAULT_MATHTYPE_SIZE_RATIOS,
   svgToPngBase64,
   renderMathML,
   type RenderOptions,
@@ -235,27 +236,7 @@ function utf8ToBase64(value: string): string {
 }
 
 const NUMBER_SLOT_WIDTH_PT = 42;
-
-function numberedFormulaDrawing(
-  widthPt: number,
-  heightPt: number,
-  maximumWidthPt: number,
-): {
-  widthEmu: number;
-  heightEmu: number;
-} {
-  // 1 point = 12700 EMU. Scale both dimensions together when the formula is
-  // wider than the actual center cell; never rely on Word to crop or shrink it.
-  const emuPerPoint = 12700;
-  const naturalWidth = Math.max(1, widthPt * emuPerPoint);
-  const naturalHeight = Math.max(1, heightPt * emuPerPoint);
-  const maximumWidth = Math.max(1, maximumWidthPt * emuPerPoint);
-  const scale = Math.min(1, maximumWidth / naturalWidth);
-  return {
-    widthEmu: Math.round(naturalWidth * scale),
-    heightEmu: Math.round(naturalHeight * scale),
-  };
-}
+const DEFAULT_TEXT_WIDTH_PT = 468;
 
 function formulaDrawingMarkup(
   widthEmu: number,
@@ -382,10 +363,10 @@ function buildDisplayFormulaPackage(
 }
 
 /**
- * Build a borderless 3-column Word layout with a centered SVG formula and a
- * right-aligned SEQ field. The PNG relationship is a compatibility fallback;
- * modern Word uses the SVG relationship and therefore keeps the math glyphs
- * as vectors instead of replacing them with Cambria Math.
+ * Build a MathType-style display-equation paragraph. A centered tab stop puts
+ * the formula at the text-area midpoint and a right tab stop aligns the SEQ
+ * field to the right margin. Keeping this as a normal paragraph avoids hidden
+ * tables and preserves the requested point size without whole-image scaling.
  */
 export function buildNumberedFormulaPackage(
   rendered: RenderedFormula,
@@ -393,71 +374,40 @@ export function buildNumberedFormulaPackage(
   bookmarkName: string,
   textWidthPt: number | null = null,
   tag: string | null = null,
+  numberFontSizePt = 12,
 ): string {
-  const hasMeasuredWidth = Number.isFinite(textWidthPt) && (textWidthPt as number) > 0;
-  const safeTextWidthPt = hasMeasuredWidth ? Math.max(12, textWidthPt as number) : null;
-  const sideWidthPt = safeTextWidthPt
-    ? Math.min(NUMBER_SLOT_WIDTH_PT, Math.max(6, safeTextWidthPt * 0.16), safeTextWidthPt * 0.3)
-    : 0;
-  const centerWidthPt = safeTextWidthPt
-    ? Math.max(1, safeTextWidthPt - sideWidthPt * 2)
-    : rendered.widthPt;
-  // Two points absorb Word's table/grid rounding at different zoom levels.
-  // Keep the formula at its requested point size whenever its natural width
-  // fits the available/default center cell. In particular, a deliberate line
-  // break must reduce width without causing a second whole-image downscale.
-  const maximumFormulaWidthPt = hasMeasuredWidth
-    ? Math.max(1, centerWidthPt - 2)
-    : rendered.widthPt;
-  const { widthEmu, heightEmu } = numberedFormulaDrawing(
-    rendered.widthPt,
-    rendered.heightPt,
-    maximumFormulaWidthPt,
-  );
+  const emuPerPoint = 12700;
+  const widthEmu = Math.max(1, Math.round(rendered.widthPt * emuPerPoint));
+  const heightEmu = Math.max(1, Math.round(rendered.heightPt * emuPerPoint));
   const drawing = formulaDrawingMarkup(widthEmu, heightEmu);
-
-  const tableWidthTwips = Math.round((safeTextWidthPt ?? 0) * 20);
-  const sideWidthTwips = Math.round(sideWidthPt * 20);
-  const centerWidthTwips = tableWidthTwips - sideWidthTwips * 2;
-
-  const paragraphProperties =
-    `<w:pPr><w:spacing w:before="0" w:after="0" w:lineRule="auto"/></w:pPr>`;
-  const widthType = hasMeasuredWidth ? "dxa" : "pct";
-  const tableWidth = hasMeasuredWidth ? tableWidthTwips : 5000;
-  const sideCellWidth = hasMeasuredWidth ? sideWidthTwips : 800;
-  const centerCellWidth = hasMeasuredWidth ? centerWidthTwips : 3400;
-  const tableLayout = hasMeasuredWidth ? "fixed" : "autofit";
-  const tableGrid = hasMeasuredWidth
-    ? `<w:tblGrid><w:gridCol w:w="${sideWidthTwips}"/><w:gridCol w:w="${centerWidthTwips}"/>` +
-      `<w:gridCol w:w="${sideWidthTwips}"/></w:tblGrid>`
-    : `<w:tblGrid/>`;
-  const cellProperties = (width: number, verticalAlign = true) =>
-    `<w:tcPr><w:tcW w:w="${width}" w:type="${widthType}"/>` +
-    (verticalAlign ? `<w:vAlign w:val="center"/>` : "") +
-    `<w:tcMar><w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/>` +
-    `<w:bottom w:w="0" w:type="dxa"/><w:right w:w="0" w:type="dxa"/></w:tcMar></w:tcPr>`;
-
-  const table =
-    `<w:tbl>` +
-    `<w:tblPr><w:tblW w:w="${tableWidth}" w:type="${widthType}"/><w:jc w:val="center"/>` +
-    `<w:tblInd w:w="0" w:type="dxa"/>` +
-    `<w:tblLayout w:type="${tableLayout}"/><w:tblBorders>` +
-    `<w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/>` +
-    `<w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/>` +
-    `</w:tblBorders></w:tblPr>` +
-    tableGrid +
-    `<w:tr><w:trPr><w:cantSplit/></w:trPr>` +
-    `<w:tc>${cellProperties(sideCellWidth)}<w:p>${paragraphProperties}</w:p></w:tc>` +
-    `<w:tc>${cellProperties(centerCellWidth)}<w:p><w:pPr><w:jc w:val="center"/>` +
-    `<w:spacing w:before="0" w:after="0"/></w:pPr>${drawing}</w:p></w:tc>` +
-    `<w:tc>${cellProperties(sideCellWidth)}<w:p><w:pPr><w:jc w:val="right"/>` +
-    `<w:spacing w:before="0" w:after="0"/></w:pPr>` +
+  const safeTextWidthPt =
+    Number.isFinite(textWidthPt) && (textWidthPt as number) > 0
+      ? Math.max(12, textWidthPt as number)
+      : DEFAULT_TEXT_WIDTH_PT;
+  const centerTabTwips = Math.round(safeTextWidthPt * 10);
+  const rightTabTwips = Math.round(safeTextWidthPt * 20);
+  const fontSizeHalfPoints = Math.max(1, Math.round(numberFontSizePt * 2));
+  // Raise the number so it remains visually centered beside a multi-line SVG.
+  const numberPositionHalfPoints = Math.max(0, Math.round(rendered.heightPt - numberFontSizePt));
+  const numberRunProperties =
+    `<w:rPr>` +
+    (numberPositionHalfPoints
+      ? `<w:position w:val="${numberPositionHalfPoints}"/>`
+      : "") +
+    `<w:sz w:val="${fontSizeHalfPoints}"/><w:szCs w:val="${fontSizeHalfPoints}"/>` +
+    `</w:rPr>`;
+  const paragraph =
+    `<w:p><w:pPr><w:tabs><w:tab w:val="center" w:pos="${centerTabTwips}"/>` +
+    `<w:tab w:val="right" w:pos="${rightTabTwips}"/></w:tabs>` +
+    `<w:spacing w:before="0" w:after="0" w:lineRule="auto"/>` +
+    `<w:ind w:left="0" w:right="0" w:firstLine="0"/></w:pPr>` +
+    `<w:r><w:tab/></w:r>${drawing}<w:r><w:tab/></w:r>` +
     `<w:bookmarkStart w:id="0" w:name="${bookmarkName}"/>` +
-    `<w:r><w:t>(</w:t></w:r>` +
+    `<w:r>${numberRunProperties}<w:t>(</w:t></w:r>` +
     `<w:fldSimple w:instr=" SEQ FormulaCanvasEquation \\* ARABIC ">` +
-    `<w:r><w:t>1</w:t></w:r></w:fldSimple>` +
-    `<w:r><w:t>)</w:t></w:r><w:bookmarkEnd w:id="0"/>` +
-    `</w:p></w:tc></w:tr></w:tbl>`;
+    `<w:r>${numberRunProperties}<w:t>1</w:t></w:r></w:fldSimple>` +
+    `<w:r>${numberRunProperties}<w:t>)</w:t></w:r><w:bookmarkEnd w:id="0"/>` +
+    `</w:p>`;
 
   const documentXml =
     `<w:document ` +
@@ -467,7 +417,7 @@ export function buildNumberedFormulaPackage(
     `xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ` +
     `xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" ` +
     `xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main">` +
-    `<w:body>${wrapFormulaContent(table, tag)}<w:p/></w:body></w:document>`;
+    `<w:body>${wrapFormulaContent(paragraph, tag)}<w:p/></w:body></w:document>`;
 
   return buildFormulaImagePackage(documentXml, rendered, pngBase64);
 }
@@ -654,6 +604,16 @@ function parseFormulaMetadata(xml: string): FormulaEditData {
   const parsed = JSON.parse(base64ToUtf8(dataNode.textContent.trim())) as Partial<FormulaEditData> & {
     version?: number;
   };
+  const sizeRatios = parsed.sizeRatios ?? DEFAULT_MATHTYPE_SIZE_RATIOS;
+  const validSizeRatios =
+    typeof sizeRatios === "object" &&
+    sizeRatios !== null &&
+    [
+      sizeRatios.subscript,
+      sizeRatios.subSubscript,
+      sizeRatios.symbol,
+      sizeRatios.subSymbol,
+    ].every((value) => typeof value === "number" && Number.isFinite(value) && value > 0);
   const preferences: InsertPreference[] = ["auto", "svg", "png", "omml", "numbered"];
   if (
     parsed.version !== 1 ||
@@ -665,11 +625,12 @@ function parseFormulaMetadata(xml: string): FormulaEditData {
     !["transparent", "white"].includes(parsed.background ?? "") ||
     !["tex", "times-new-roman"].includes(parsed.mathFont ?? "") ||
     !["default", "upright", "italic", "bold", "bold-italic"].includes(parsed.mathStyle ?? "") ||
+    !validSizeRatios ||
     !preferences.includes(parsed.preference as InsertPreference)
   ) {
     throw new Error("公式源码元数据格式不受支持");
   }
-  return parsed as FormulaEditData;
+  return { ...parsed, sizeRatios } as FormulaEditData;
 }
 
 export async function recoverSelectedFormula(): Promise<RecoveredFormula> {
@@ -705,18 +666,25 @@ export async function recoverSelectedFormula(): Promise<RecoveredFormula> {
 async function insertNumberedFormula(
   rendered: RenderedFormula,
   tag: string | null,
+  fontSizePt: number,
 ): Promise<InsertResult> {
-  const [pngBase64, textWidthPt] = await Promise.all([
-    svgToPngBase64(rendered, 4),
-    currentNumberedTextWidthPt(),
-  ]);
+  const textWidthPt = await currentNumberedTextWidthPt();
+  const effectiveTextWidthPt = textWidthPt ?? DEFAULT_TEXT_WIDTH_PT;
+  if (rendered.widthPt > Math.max(1, effectiveTextWidthPt - NUMBER_SLOT_WIDTH_PT * 2 - 2)) {
+    throw new Error(
+      `公式宽度 ${rendered.widthPt.toFixed(1)} pt 超出编号段落的安全宽度；` +
+        "请先使用 aligned / split 手动换行，插件不会缩小设定字号。",
+    );
+  }
+  const pngBase64 = await svgToPngBase64(rendered, 4);
   const bookmarkName = `FormulaCanvasEq_${Date.now().toString(36)}`;
   const ooxml = buildNumberedFormulaPackage(
     rendered,
     pngBase64,
     bookmarkName,
-    textWidthPt,
+    effectiveTextWidthPt,
     tag,
+    fontSizePt,
   );
   try {
     await setSelectedData(ooxml, { coercionType: Office.CoercionType.Ooxml });
@@ -936,7 +904,7 @@ export async function insertFormula(
     } else if (preference === "numbered") {
       if (!isWord()) throw new Error("自动编号公式仅支持 Word");
       if (!math) throw new Error("缺少排版信息，无法判断行内或独立公式");
-      result = await insertNumberedFormula(rendered, tag);
+      result = await insertNumberedFormula(rendered, tag, math.fontSizePt);
     } else if (isWord() && math) {
       result = await insertWordDisplayFormula(rendered, tag, preference !== "png");
     } else if (preference === "png") {
